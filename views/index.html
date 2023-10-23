@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MetaMask Authentication</title>
+</head>
+<body>
+<h1>MetaMask Authentication</h1>
+<button onclick="connectMetaMask()">Connect MetaMask</button>
+<p id="accountArea"></p>
+<button onclick="signMessage()">Sign Message</button>
+<button id="logout-button">Log Out of MetaMask</button>
+<p id="signatureArea"></p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.3.5/web3.min.js"></script>
+<script>
+    let account; // To store the connected account
+
+    const connectMetaMask = async () => {
+        if (window.ethereum) {
+            try {
+                const accounts = await ethereum.request({
+                    method: "eth_requestAccounts",
+                });
+                const address = accounts[0];
+
+                account = accounts[0];
+                document.getElementById('accountArea').innerHTML = `Connected Account: ${account}`;
+                const message = "Please sign this message to verify your identity";
+
+                const signature = await ethereum.request({
+                      method: "personal_sign",
+                      params: [message, address],
+                });
+
+                const response = await fetch('/registration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ address: account,  signature: document.getElementById('signatureArea').innerText.split(": ")[1], message: 'Please sign this message to verify your identity'  }),
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Authentication result:', result);
+                } else {
+                    console.error('Authentication failed');
+                }
+            } catch (error) {
+                console.error('MetaMask access denied:', error);
+            }
+        } else {
+            console.error('MetaMask not found');
+        }
+    };
+
+
+    const signMessage = async () => {
+        if (account) {
+            const message = 'Please sign this message to verify your identity';
+            try {
+                const signature = await ethereum.request({ method: 'personal_sign', params: [message, account] });
+                document.getElementById('signatureArea').innerHTML = `Signature: ${signature}`;
+            } catch (error) {
+                console.error('Error signing message:', error);
+            }
+        } else {
+            console.error('You need to connect your MetaMask account first.');
+        }
+    };
+
+    const logoutMetaMask = async () => {3
+        if (window.ethereum) {
+            try {
+                await ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+                console.log('MetaMask locked');
+                document.getElementById('accountArea').innerHTML = 'Connected Account: (locked)';
+                document.getElementById('signatureArea').innerHTML = 'Signature: (locked)';
+            } catch (error) {
+                console.error('Failed to lock MetaMask:', error);
+            }
+        } else {
+            console.error('MetaMask not found');
+        }
+    };
+
+    document.getElementById('logout-button').addEventListener('click', logoutMetaMask);
+</script>
+</body>
+</html>
+
+

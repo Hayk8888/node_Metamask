@@ -2,29 +2,50 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const {validationResult} = require("express-validator")
 const {sign} = require('jsonwebtoken');
+const {Web3} = require("web3");
+const {bufferToHex} = require("ethereumjs-util");
+
+
 
 class authController {
-    async registration(req, res) {
-
-        const errors = validationResult(req);
-
-        if (!errors.isEmpty()) {
-            return res.send(`validation is not  successful`);
-        }
+    async authentication(req, res) {
 
         try {
-            const {username, password, email} = req.body
-            const candidate = await User.findOne({$or: [{username}, {email}]});
-            if (candidate) {
-                return res.status(400).json({message: "username or email in this  name or username is  verified"})
+
+            const { address, signature, message } = req.body;
+
+            let web3 = new Web3(Web3.givenProvider || "http://localhost:5001");
+            const messageHash = web3.utils.soliditySha3(message);
+
+            const recoveredAddress = bufferToHex(web3.eth.accounts.recover(messageHash, signature));
+            console.log(recoveredAddress.toLowerCase())
+            // console.log(address.toLowerCase())
+            // console.log(messageHash);
+            console.log(recoveredAddress)
+            console.log(address)
+            console.log(signature);
+            if (recoveredAddress.toLowerCase() === address.toLowerCase()) {
+
+                return res.json({ message: 'Authentication successful' });
+            } else {
+
+                return res.status(401).json({ message: 'Authentication failed' });
             }
-            const hashPassword = bcrypt.hashSync(password, 7);
-            const user = new User({username, password: hashPassword, roles: "USER", email: email,});
-            await user.save()
-            return res.json({message: "user is connected"});
+
+            // The code below seems to be for user registration, not directly related to authentication.
+            // You may want to refactor this part or place it in a separate route or controller.
+
+            // const candidate = await User.findOne({$or: [{signature}, {message}]});
+            // if (candidate) {
+            //     return res.status(400).json({ message: 'Username or email already exists' });
+            // }
+            // const hashPassword = bcrypt.hashSync(password, 7);
+            // const user = new User({ username, password: hashPassword, roles: 'USER', email });
+            // await user.save();
+            // return res.json({ message: 'User is connected' });
         } catch (err) {
-            console.log(err)
-            res.status(400).json({message: "Registration error"})
+            console.error(err);
+            return res.status(400).json({ message: `Authentication error: ${err.message}` });
         }
     }
 
@@ -36,6 +57,7 @@ class authController {
 
         try {
             const {email, username, password} = req.body
+
             const user = await User.findOne({$and: [{username}, {email}]})
             if (!user) {
                 return res.status(400).json({message: `user is ${username} is not  found`})
